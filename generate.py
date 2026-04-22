@@ -1,5 +1,4 @@
 import requests
-import re
 from bs4 import BeautifulSoup
 from datetime import datetime
 
@@ -7,77 +6,68 @@ GROUP = "БХ-2331"
 URL = f"https://uspu.ru/education/eios/schedule/?group_name={GROUP}"
 
 
-def extract_date_range(soup):
-    el = soup.select_one(".rasp-zag.rasp-zag-group")
-    if not el:
-        return None, None
-
-    text = el.get_text(strip=True)
-
-    # "Расписание c 22 апреля по 13 мая"
-    m = re.search(r"c\s+(\d{1,2}\s+\w+)\s+по\s+(\d{1,2}\s+\w+)", text)
-    if not m:
-        return None, None
-
-    return m.group(1), m.group(2)
+def clean(text):
+    return " ".join(text.split()).strip()
 
 
 def parse_lessons(soup):
     lessons = []
 
-    # 🔥 ВАЖНО: универсальный поиск блоков
-    # сайт у тебя, скорее всего, использует карточки или строки таблицы
-    blocks = soup.find_all(["tr", "div"])
+    for card in soup.select("div.rasp-para"):
+        try:
+            # ⏰ время
+            time = card.select_one(".para-time").get_text(strip=True)
+            start, end = [t.strip() for t in time.split("-")]
 
-    for b in blocks:
-        text = b.get_text(" ", strip=True)
+            desc = card.select_one(".rasp-desc")
 
-        # пропускаем мусор
-        if len(text) < 10:
+            # 📌 предмет (первая строка)
+            title = desc.find("p").contents[0]
+            title = clean(title)
+
+            full = clean(desc.get_text(" ", strip=True))
+
+            # 🏫 аудитория
+            location = ""
+            if "Учебная аудитория" in full:
+                location = full.split("Учебная аудитория")[1].split("Преподаватель")[0]
+                location = "Учебная аудитория " + location.strip()
+
+            lessons.append({
+                "title": title,
+                "location": location,
+                "start": start,
+                "end": end
+            })
+
+        except:
             continue
-
-        # ищем типичный формат пары:
-        # "08:30 - 10:00 Математика ауд. 101"
-        m = re.search(
-            r"(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2}).+?([А-Яа-яA-Za-z0-9 .,\-]+)",
-            text
-        )
-
-        if not m:
-            continue
-
-        start, end, title = m.groups()
-
-        lessons.append({
-            "title": title.strip(),
-            "start": start,
-            "end": end
-        })
 
     return lessons
 
 
 def build_ics(lessons):
+    base = datetime.today()
     events = []
 
     for i, l in enumerate(lessons):
         try:
-            today = datetime.today()
-
             sh, sm = map(int, l["start"].split(":"))
             eh, em = map(int, l["end"].split(":"))
 
-            start = today.replace(hour=sh, minute=sm, second=0)
-            end = today.replace(hour=eh, minute=em, second=0)
+            start = base.replace(hour=sh, minute=sm, second=0)
+            end = base.replace(hour=eh, minute=em, second=0)
 
             event = f"""BEGIN:VEVENT
 UID:{GROUP}-{i}
 SUMMARY:{l['title']}
+LOCATION:{l['location']}
 DTSTART:{start.strftime("%Y%m%dT%H%M%S")}
 DTEND:{end.strftime("%Y%m%dT%H%M%S")}
 END:VEVENT"""
 
             events.append(event)
+
         except:
             continue
 
@@ -90,15 +80,14 @@ def main():
 
     soup = BeautifulSoup(r.text, "html.parser")
 
-    start, end = extract_date_range(soup)
     lessons = parse_lessons(soup)
+
+    print(f"Lessons: {len(lessons)}")
 
     ics = build_ics(lessons)
 
     with open("calendar.ics", "w", encoding="utf-8") as f:
         f.write(ics)
-
-    print(f"Done: {len(lessons)} lessons")
 
 
 if __name__ == "__main__":
