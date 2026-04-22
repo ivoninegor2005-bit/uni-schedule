@@ -12,19 +12,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install dependencies
+      - name: Run update script
         run: |
-          pip install -r requirements.txt
-          playwright install
+          chmod +x update.sh
+          ./update.sh
 
-      - name: Run downloader
-        run: python schedule.py
-
-      - name: Commit updated ICS
+      - name: Commit changes
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
