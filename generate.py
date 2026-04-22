@@ -75,7 +75,7 @@ END:VEVENT"""
 
 
 def main():
-    r = requests.get(URL, headers={"User-Agent": "Mozilla/5.0"})
+    r = requests.get(URL, headers={"User-Agent": "Mozilla/5.0"}, timeout=20)
     r.raise_for_status()
 
     soup = BeautifulSoup(r.text, "html.parser")
