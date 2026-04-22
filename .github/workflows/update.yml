@@ -20,27 +20,20 @@ jobs:
                --retry 5 \
                --retry-delay 3 \
                --fail \
-               -L "$URL" -o calendar_new.ics || true
+               -L "$URL" -o calendar.ics || true
 
-      - name: Validate ICS content
+      - name: Validate file
         run: |
-          echo "Validating file..."
-
-          if [ -s calendar_new.ics ] && grep -q "BEGIN:VCALENDAR" calendar_new.ics; then
-            echo "Valid ICS"
-            mv calendar_new.ics calendar.ics
+          if [ -s calendar.ics ] && grep -q "BEGIN:VCALENDAR" calendar.ics; then
+            echo "OK ICS file"
           else
-            echo "Invalid or missing ICS — keeping old version"
-
-            if [ ! -f calendar.ics ]; then
-              echo "Creating fallback calendar"
-              cat <<EOF > calendar.ics
+            echo "Creating fallback ICS"
+            cat <<EOF > calendar.ics
 BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//Uni Schedule//RU
 END:VCALENDAR
 EOF
-            fi
           fi
 
       - name: Commit changes
@@ -49,7 +42,5 @@ EOF
           git config user.email github-actions@github.com
 
           git add calendar.ics
-
           git commit -m "update calendar" || echo "no changes"
-
           git push
