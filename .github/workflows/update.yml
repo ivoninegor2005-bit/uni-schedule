@@ -18,10 +18,22 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install requests
+        run: pip install requests beautifulsoup4
 
       - name: Run generator
         run: python generate.py
+
+      - name: Ensure calendar exists
+        run: |
+          if [ ! -s calendar.ics ]; then
+            echo "Empty fallback calendar"
+            cat <<EOF > calendar.ics
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Uni Schedule//RU
+END:VCALENDAR
+EOF
+          fi
 
       - name: Commit changes
         run: |
