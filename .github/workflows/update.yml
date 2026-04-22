@@ -1,4 +1,4 @@
-name: update-calendar
+name: TEST_WORKFLOW_VISIBLE
 
 on:
   schedule:
