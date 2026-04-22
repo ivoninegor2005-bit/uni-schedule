@@ -32,3 +32,10 @@ def download_ics():
 
 if __name__ == "__main__":
     download_ics()
+
+for i in range(3):
+    try:
+        page.goto(URL, wait_until="domcontentloaded", timeout=60000)
+        break
+    except:
+        page.wait_for_timeout(2000)
