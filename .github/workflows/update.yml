@@ -20,12 +20,7 @@ jobs:
       - name: Ensure file exists
         run: |
           if [ ! -s calendar.ics ]; then
-            cat <<EOF > calendar.ics
-BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Uni Schedule//RU
-END:VCALENDAR
-EOF
+            printf "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Uni Schedule//RU\nEND:VCALENDAR\n" > calendar.ics
           fi
 
       - name: Commit
