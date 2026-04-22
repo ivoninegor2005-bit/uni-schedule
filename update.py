@@ -1,84 +1,43 @@
 import requests
-from bs4 import BeautifulSoup
-import base64
-import os
+from datetime import datetime
 
 GROUP = "БХ-2331"
-HTML_URL = f"https://uspu.ru/education/eios/schedule/?group_name={GROUP}"
 
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
-REPO = "USERNAME/REPO_NAME"
-FILE_PATH = "calendar.ics"
+ICS_URL = "https://uspu.ru/....ics"  # если есть прямая ссылка
 
-def get_dates():
-    r = requests.get(HTML_URL, timeout=30)
-    r.raise_for_status()
-
-    soup = BeautifulSoup(r.text, "html.parser")
-    tag = soup.find("p", class_="rasp-zag rasp-zag-group")
-
-    if not tag:
-        raise Exception("No schedule header found")
-
-    text = tag.text
-    # "Расписание c 22 апреля по 13 мая"
-    parts = text.split("c")[1].strip().split("по")
-
-    start = parts[0].strip()
-    end = parts[1].strip()
-
-    return start, end
-
-def download_ics(url):
-    r = requests.get(url, timeout=30)
+def download_ics():
+    print("Downloading ICS...")
+    r = requests.get(ICS_URL, timeout=30)
     r.raise_for_status()
     return r.text
 
-def push_to_github(content):
-    url = f"https://api.github.com/repos/{REPO}/contents/{FILE_PATH}"
-
-    encoded = base64.b64encode(content.encode()).decode()
-
-    r = requests.get(url, headers={
-        "Authorization": f"token {GITHUB_TOKEN}"
-    })
-
-    sha = None
-    if r.status_code == 200:
-        sha = r.json()["sha"]
-
-    data = {
-        "message": "update schedule",
-        "content": encoded,
-    }
-
-    if sha:
-        data["sha"] = sha
-
-    r = requests.put(url, json=data, headers={
-        "Authorization": f"token {GITHUB_TOKEN}"
-    })
-
-    r.raise_for_status()
+def save_file(content):
+    with open("calendar.ics", "w", encoding="utf-8") as f:
+        f.write(content)
 
 def main():
-    print("Getting dates...")
-    start, end = get_dates()
-
-    print("Building ICS URL...")
-    ics_url = f"https://uspu.ru/education/eios/schedule/calendar/calendar_filter/calendar_{GROUP}_{start}_12:00:00_{end}_12:00:00.ics"
-
-    print("Downloading ICS...")
     try:
-        ics = download_ics(ics_url)
+        ics = download_ics()
+
+        if "BEGIN:VEVENT" not in ics:
+            raise Exception("Empty ICS")
+
+        save_file(ics)
+        print("OK → calendar.ics updated")
+
     except Exception as e:
-        print("FAILED ICS, using fallback")
-        ics = "BEGIN:VCALENDAR\nVERSION:2.0\nEND:VCALENDAR"
+        print("FAILED:", e)
 
-    print("Uploading to GitHub...")
-    push_to_github(ics)
+        # fallback, чтобы iPhone НЕ пустой
+        fallback = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Uni Schedule//RU
+BEGIN:VEVENT
+UID:fallback
+DTSTART:20260422T120000
+DTEND:20260422T133500
+SUMMARY:Расписание временно недоступно
+END:VEVENT
+END:VCALENDAR"""
 
-    print("DONE")
-
-if __name__ == "__main__":
-    main()
+        save_file(fallback)
