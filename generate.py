@@ -6,47 +6,42 @@ GROUP = "БХ-2331"
 URL = f"https://uspu.ru/education/eios/schedule/?group_name={GROUP}"
 
 
-def clean(text):
-    return " ".join(text.split()).strip()
+def clean(t):
+    return " ".join(t.split()).strip()
 
 
 def fetch_html():
     print("Fetching schedule...")
 
-    headers = {
-        "User-Agent": "Mozilla/5.0",
-        "Accept-Language": "ru-RU,ru;q=0.9"
-    }
-
     try:
-        r = requests.get(URL, headers=headers, timeout=20)
+        r = requests.get(
+            URL,
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=20
+        )
         r.raise_for_status()
-        print("Response received")
+        print("HTML loaded")
         return r.text
 
     except Exception as e:
-        print("ERROR fetching page:", e)
+        print("Fetch error:", e)
         return None
 
 
-def parse_lessons(html):
+def parse(html):
     soup = BeautifulSoup(html, "html.parser")
-    lessons = []
-
     cards = soup.select("div.rasp-para")
 
-    print(f"Found cards: {len(cards)}")
+    print("Cards:", len(cards))
 
-    for card in cards:
+    lessons = []
+
+    for c in cards:
         try:
-            time_el = card.select_one(".para-time")
-            desc = card.select_one(".rasp-desc")
+            time = c.select_one(".para-time").get_text(strip=True)
+            start, end = [x.strip() for x in time.split("-")]
 
-            if not time_el or not desc:
-                continue
-
-            time_text = clean(time_el.get_text())
-            start, end = [t.strip() for t in time_text.split("-")]
+            desc = c.select_one(".rasp-desc")
 
             title = desc.find("p").contents[0]
             title = clean(title)
@@ -66,8 +61,7 @@ def parse_lessons(html):
             })
 
         except Exception as e:
-            print("Skip card:", e)
-            continue
+            print("skip:", e)
 
     return lessons
 
@@ -84,40 +78,42 @@ def build_ics(lessons):
             start = base.replace(hour=sh, minute=sm, second=0)
             end = base.replace(hour=eh, minute=em, second=0)
 
-            event = f"""BEGIN:VEVENT
+            events.append(f"""BEGIN:VEVENT
 UID:{GROUP}-{i}
 SUMMARY:{l['title']}
 LOCATION:{l['location']}
 DTSTART:{start.strftime("%Y%m%dT%H%M%S")}
 DTEND:{end.strftime("%Y%m%dT%H%M%S")}
-END:VEVENT"""
-
-            events.append(event)
+END:VEVENT""")
 
         except Exception as e:
-            print("Skip lesson:", e)
-            continue
+            print("event skip:", e)
 
-    return "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Uni Schedule//RU\n" + "\n".join(events) + "\nEND:VCALENDAR"
+    return (
+        "BEGIN:VCALENDAR\n"
+        "VERSION:2.0\n"
+        "PRODID:-//Uni Schedule//RU\n"
+        + "\n".join(events) +
+        "\nEND:VCALENDAR"
+    )
 
 
 def main():
     html = fetch_html()
 
-    if not html:
-        print("No HTML, exiting")
-        return
-
-    lessons = parse_lessons(html)
-
-    print(f"Total lessons: {len(lessons)}")
-
-    ics = build_ics(lessons)
+    # 🔥 ВАЖНО: файл ВСЕГДА создаётся
+    if html:
+        lessons = parse(html)
+        print("Lessons:", len(lessons))
+        ics = build_ics(lessons)
+    else:
+        print("Fallback calendar")
+        ics = "BEGIN:VCALENDAR\nVERSION:2.0\nEND:VCALENDAR"
 
     with open("calendar.ics", "w", encoding="utf-8") as f:
         f.write(ics)
 
-    print("calendar.ics generated")
+    print("calendar.ics written")
 
 
 if __name__ == "__main__":
