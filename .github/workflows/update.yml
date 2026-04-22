@@ -44,3 +44,6 @@ EOF
           git add calendar.ics
           git commit -m "update calendar" || echo "no changes"
           git push
+git add .
+git commit -m "fix workflow"
+git push
