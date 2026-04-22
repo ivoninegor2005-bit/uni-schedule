@@ -2,7 +2,7 @@ name: update-calendar
 
 on:
   schedule:
-    - cron: "0 6 * * *"   # каждый день 06:00 UTC
+    - cron: "0 6 * * *"
   workflow_dispatch:
 
 jobs:
@@ -10,14 +10,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Download ICS
         run: |
           URL="https://uspu.ru/education/eios/schedule/calendar/calendar_filter/calendar_БХ-2331_22.04.2026%2012%3A00%3A00_13.05.2026%2012%3A00%3A00.ics"
-
-          echo "Downloading ICS..."
 
           curl --http1.1 \
                --retry 5 \
@@ -25,17 +22,18 @@ jobs:
                --fail \
                -L "$URL" -o calendar_new.ics || true
 
-      - name: Validate file
+      - name: Validate ICS content
         run: |
-          echo "Checking file..."
+          echo "Validating file..."
 
-          if [ -s calendar_new.ics ]; then
-            echo "Valid ICS downloaded"
+          if [ -s calendar_new.ics ] && grep -q "BEGIN:VCALENDAR" calendar_new.ics; then
+            echo "Valid ICS"
             mv calendar_new.ics calendar.ics
           else
-            echo "Download failed or empty file — keeping old calendar"
+            echo "Invalid or missing ICS — keeping old version"
+
             if [ ! -f calendar.ics ]; then
-              echo "No existing fallback calendar found — creating empty one"
+              echo "Creating fallback calendar"
               cat <<EOF > calendar.ics
 BEGIN:VCALENDAR
 VERSION:2.0
@@ -52,6 +50,6 @@ EOF
 
           git add calendar.ics
 
-          git commit -m "update calendar" || echo "no changes to commit"
+          git commit -m "update calendar" || echo "no changes"
 
           git push
