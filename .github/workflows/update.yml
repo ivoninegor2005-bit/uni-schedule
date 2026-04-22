@@ -15,10 +15,10 @@ jobs:
       - name: Install deps
         run: pip install requests beautifulsoup4
 
-      - name: Generate calendar
+      - name: Generate ICS
         run: python generate.py
 
-      - name: Commit
+      - name: Commit & push
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
