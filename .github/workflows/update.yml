@@ -14,7 +14,7 @@ jobs:
 
       - name: Download ICS
         run: |
-          curl -L "https://uspu.ru/education/eios/schedule/calendar/calendar_filter/calendar_БХ-2331_22.04.2026%2012%3A00%3A00_13.05.2026%2012%3A00%3A00.ics" -o calendar.ics
+          curl --http1.1 -L "https://uspu.ru/education/eios/schedule/calendar/calendar_filter/calendar_БХ-2331_22.04.2026%2012%3A00%3A00_13.05.2026%2012%3A00%3A00.ics" -o calendar.ics
 
       - name: Commit file
         run: |
