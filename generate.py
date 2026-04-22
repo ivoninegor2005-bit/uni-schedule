@@ -10,24 +10,49 @@ def clean(text):
     return " ".join(text.split()).strip()
 
 
-def parse_lessons(soup):
+def fetch_html():
+    print("Fetching schedule...")
+
+    headers = {
+        "User-Agent": "Mozilla/5.0",
+        "Accept-Language": "ru-RU,ru;q=0.9"
+    }
+
+    try:
+        r = requests.get(URL, headers=headers, timeout=20)
+        r.raise_for_status()
+        print("Response received")
+        return r.text
+
+    except Exception as e:
+        print("ERROR fetching page:", e)
+        return None
+
+
+def parse_lessons(html):
+    soup = BeautifulSoup(html, "html.parser")
     lessons = []
 
-    for card in soup.select("div.rasp-para"):
-        try:
-            # ⏰ время
-            time = card.select_one(".para-time").get_text(strip=True)
-            start, end = [t.strip() for t in time.split("-")]
+    cards = soup.select("div.rasp-para")
 
+    print(f"Found cards: {len(cards)}")
+
+    for card in cards:
+        try:
+            time_el = card.select_one(".para-time")
             desc = card.select_one(".rasp-desc")
 
-            # 📌 предмет (первая строка)
+            if not time_el or not desc:
+                continue
+
+            time_text = clean(time_el.get_text())
+            start, end = [t.strip() for t in time_text.split("-")]
+
             title = desc.find("p").contents[0]
             title = clean(title)
 
             full = clean(desc.get_text(" ", strip=True))
 
-            # 🏫 аудитория
             location = ""
             if "Учебная аудитория" in full:
                 location = full.split("Учебная аудитория")[1].split("Преподаватель")[0]
@@ -35,12 +60,13 @@ def parse_lessons(soup):
 
             lessons.append({
                 "title": title,
-                "location": location,
                 "start": start,
-                "end": end
+                "end": end,
+                "location": location
             })
 
-        except:
+        except Exception as e:
+            print("Skip card:", e)
             continue
 
     return lessons
@@ -68,26 +94,30 @@ END:VEVENT"""
 
             events.append(event)
 
-        except:
+        except Exception as e:
+            print("Skip lesson:", e)
             continue
 
     return "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Uni Schedule//RU\n" + "\n".join(events) + "\nEND:VCALENDAR"
 
 
 def main():
-    r = requests.get(URL, headers={"User-Agent": "Mozilla/5.0"}, timeout=20)
-    r.raise_for_status()
+    html = fetch_html()
 
-    soup = BeautifulSoup(r.text, "html.parser")
+    if not html:
+        print("No HTML, exiting")
+        return
 
-    lessons = parse_lessons(soup)
+    lessons = parse_lessons(html)
 
-    print(f"Lessons: {len(lessons)}")
+    print(f"Total lessons: {len(lessons)}")
 
     ics = build_ics(lessons)
 
     with open("calendar.ics", "w", encoding="utf-8") as f:
         f.write(ics)
+
+    print("calendar.ics generated")
 
 
 if __name__ == "__main__":
