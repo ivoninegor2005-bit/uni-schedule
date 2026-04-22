@@ -18,9 +18,9 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install requests beautifulsoup4 ics
+        run: pip install requests
 
-      - name: Generate calendar
+      - name: Run generator
         run: python generate.py
 
       - name: Commit changes
