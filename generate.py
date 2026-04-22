@@ -1,91 +1,57 @@
 import requests
-from bs4 import BeautifulSoup
 from datetime import datetime
-from ics import Calendar, Event
 
-URL = "https://uspu.ru/education/eios/schedule/?group_name=БХ-2331"
+ICS_URL = "https://uspu.ru/education/eios/schedule/calendar/calendar_filter/calendar_БХ-2331_22.04.2026%2012%3A00%3A00_13.05.2026%2012%3A00%3A00.ics"
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0"
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "Accept": "text/calendar,text/plain,*/*",
 }
 
-def parse_time(text):
-    start, end = text.split("-")
-    return start.strip(), end.strip()
+def download_ics():
+    print("Downloading ICS...")
 
-def build_datetime(date_str, time_str):
-    return datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
+    r = requests.get(ICS_URL, headers=HEADERS, timeout=30)
 
-def download_html():
-    r = requests.get(URL, headers=HEADERS, timeout=20)
-    r.raise_for_status()
+    if r.status_code != 200:
+        print("Download failed:", r.status_code)
+        return None
+
     return r.text
 
-def parse_schedule(html):
-    soup = BeautifulSoup(html, "html.parser")
-    items = soup.select(".rasp-para")
 
-    events = []
-
-    current_date = None
-
-    for item in items:
-        time_block = item.select_one(".para-time").text.strip()
-        desc = item.select_one(".rasp-desc p").text.strip()
-
-        # грубый парс даты из контекста страницы
-        # (если вуз не даёт — берём из логики или расширяем позже)
-        if not current_date:
-            current_date = datetime.now().strftime("%Y-%m-%d")
-
-        start_t, end_t = parse_time(time_block)
-
-        events.append({
-            "start": build_datetime(current_date, start_t),
-            "end": build_datetime(current_date, end_t),
-            "title": desc.split("\n")[0],
-            "location": desc
-        })
-
-    return events
-
-def build_ics(events):
-    cal = Calendar()
-
-    for i, e in enumerate(events):
-        event = Event()
-        event.name = e["title"]
-        event.begin = e["start"]
-        event.end = e["end"]
-        event.location = e["location"]
-        event.uid = str(i)
-
-        cal.events.add(event)
-
-    return cal
-
-def save_calendar(cal):
+def save_calendar(content: str):
     with open("calendar.ics", "w", encoding="utf-8") as f:
-        f.writelines(cal)
+        f.write(content)
+    print("calendar.ics written")
+
+
+def validate(content: str):
+    if not content:
+        return False
+    return "BEGIN:VCALENDAR" in content and "VEVENT" in content
+
+
+def fallback_calendar():
+    print("Invalid ICS → fallback empty calendar")
+
+    return """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Uni Schedule//RU
+CALSCALE:GREGORIAN
+END:VCALENDAR
+"""
+
 
 def main():
-    print("Downloading HTML...")
+    ics = download_ics()
 
-    html = download_html()
+    if validate(ics):
+        print("ICS OK")
+        save_calendar(ics)
+    else:
+        save_calendar(fallback_calendar())
 
-    print("Parsing schedule...")
-    events = parse_schedule(html)
-
-    if not events:
-        raise Exception("No events parsed — check HTML structure")
-
-    print(f"Found {len(events)} events")
-
-    cal = build_ics(events)
-
-    save_calendar(cal)
-
-    print("calendar.ics written successfully")
 
 if __name__ == "__main__":
     main()
