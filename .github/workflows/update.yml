@@ -1,8 +1,8 @@
-name: update-ics
+name: update-calendar
 
 on:
   schedule:
-    - cron: "0 6 * * *"   # каждый день
+    - cron: "0 6 * * *"
   workflow_dispatch:
 
 jobs:
@@ -12,11 +12,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download ICS
-        run: |
-          curl --http1.1 -L "https://uspu.ru/education/eios/schedule/calendar/calendar_filter/calendar_БХ-2331_22.04.2026%2012%3A00%3A00_13.05.2026%2012%3A00%3A00.ics" -o calendar.ics
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-      - name: Commit file
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          playwright install
+
+      - name: Run downloader
+        run: python schedule.py
+
+      - name: Commit updated ICS
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
