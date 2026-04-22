@@ -12,14 +12,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: Install dependencies
-        run: pip install requests
+        run: pip install requests beautifulsoup4 ics
 
       - name: Generate calendar
         run: python generate.py
-
-      - name: Debug file
-        run: cat calendar.ics | head -n 20
 
       - name: Commit changes
         run: |
