@@ -15,7 +15,6 @@ jobs:
       - name: Download ICS
         run: |
           URL="https://uspu.ru/education/eios/schedule/calendar/calendar_filter/calendar_БХ-2331_22.04.2026%2012%3A00%3A00_13.05.2026%2012%3A00%3A00.ics"
-
           curl -L --fail --retry 5 "$URL" -o calendar.ics || true
 
       - name: Ensure file exists
